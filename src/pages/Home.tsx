@@ -9,7 +9,8 @@ import {
   faMotorcycle,
   faShirt,
 } from "@fortawesome/free-solid-svg-icons";
-import { BIKES, BRANDS, CATEGORIES, TVS_ACCESSORIES, TVS_PARTS } from "../data";
+import { useSiteData } from "../lib/store";
+import { findPart } from "../lib/catalog";
 import { Section } from "../components/Layout";
 import { BikeCard, PartCard } from "../components/Cards";
 import { AccessoryBrandQuickLinks } from "../components/AccessoryBrands";
@@ -19,61 +20,42 @@ import NewArrivals from "../components/NewArrivals";
 import TypedText from "../components/TypedText";
 import { content } from "../constants/content";
 
-const FEATURED = [
-  {
-    id: "sherco-sef-250-factory-2026",
-    short: "SEF 250 Factory",
-    brand: "Sherco",
-    tag: "Enduro / Factory",
-    image: "https://funbike.mg/wp-content/uploads/2026/02/01-250-SEF-FACTORY-2026-3679x2456-1-1920x1080-1.jpg",
-    alt: "Sherco SEF 250 Factory 2026 en action",
-  },
-  {
-    id: "sherco-sef-300-factory-2026",
-    short: "SEF 300 Factory",
-    brand: "Sherco",
-    tag: "Enduro / Factory",
-    image: "https://funbike.mg/wp-content/uploads/2026/02/01-300-SEF-FACTORY-2026-3679x2456-1-1920x1080-1.jpg",
-    alt: "Sherco SEF 300 Factory 2026 en action",
-  },
-  {
-    id: "xx-125-2026",
-    short: "XX 125 Off-Road",
-    brand: "Fantic",
-    tag: "Cross / 125 cc",
-    image: "https://funbike.mg/wp-content/uploads/2026/02/7b566adac57a4b5dbfd74d4f768e6fdb.jpg",
-    alt: "Fantic XX 125 2026 sur piste",
-  },
-];
-
 const CATEGORY_ICONS = [faMotorcycle, faHelmetSafety, faGears, faShirt];
 
 export default function Home({ go }: { go: (p: string, id?: string) => void }) {
+  const { home, bikes, brands, categories } = useSiteData();
   const [activeHero, setActiveHero] = useState(0);
-  const current = FEATURED[activeHero];
+
+  // Produits présentés sur le site : choisis dans le dashboard (/admin/accueil).
+  const slides = home.heroSlides.filter((slide) => slide.enabled);
+  const current = slides[Math.min(activeHero, Math.max(0, slides.length - 1))];
+  const totalSlides = String(Math.max(slides.length, 1)).padStart(2, "0");
 
   useEffect(() => {
+    if (slides.length < 2) return;
     const timer = window.setInterval(() => {
-      setActiveHero((index) => (index + 1) % FEATURED.length);
+      setActiveHero((index) => (index + 1) % slides.length);
     }, 6500);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [slides.length]);
 
   return (
     <div className="overflow-hidden bg-white text-[#171816] dark:bg-[#141513] dark:text-[#f2f0ea]">
       {/* Full-bleed hero image with a smooth contrast veil for the headline */}
       <section className="relative isolate min-h-[max(560px,calc(100svh-64px))] overflow-hidden bg-[#22231f] sm:min-h-[720px] lg:min-h-[min(820px,calc(100svh-68px))]">
         <AnimatePresence initial={false} mode="sync">
-          <motion.img
-            key={current.id}
-            src={current.image}
-            alt={current.alt}
-            initial={{ opacity: 0, scale: 1.035 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ opacity: { duration: 0.7 }, scale: { duration: 7, ease: "linear" } }}
-            className="absolute inset-0 h-full w-full object-cover object-[center_52%]"
-          />
+          {current && (
+            <motion.img
+              key={current.id}
+              src={current.image}
+              alt={current.alt}
+              initial={{ opacity: 0, scale: 1.035 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ opacity: { duration: 0.7 }, scale: { duration: 7, ease: "linear" } }}
+              className="absolute inset-0 h-full w-full object-cover object-[center_52%]"
+            />
+          )}
         </AnimatePresence>
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/65 to-black/20 lg:via-black/70" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/20" />
@@ -89,18 +71,18 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
           >
             <p className="fluid-eyebrow flex items-center gap-2 font-bold uppercase leading-snug text-white/75">
               <FontAwesomeIcon icon={faLocationDot} className="shrink-0 text-[#ffd100]" />
-              <span>{content.accueil.hero.localisation}</span>
+              <span>{home.hero.localisation}</span>
             </p>
             <h1 className="fluid-hero mt-4 max-w-xl text-balance font-display font-semibold text-white sm:mt-7">
-              {content.accueil.hero.titreLigne1}
-              <br className="hidden sm:inline" /> {content.accueil.hero.titreLigne2}
+              {home.hero.titreLigne1}
+              <br className="hidden sm:inline" /> {home.hero.titreLigne2}
             </h1>
             <p className="fluid-body mt-3.5 max-w-md text-pretty text-white/80 sm:mt-4">
-              {content.accueil.hero.description}
+              {home.hero.description}
             </p>
             <p className="fluid-body mt-3 flex items-center text-white/90">
-              {content.accueil.hero.sloganPrefix}&nbsp;
-              <TypedText strings={[...content.accueil.hero.usages]} className="font-semibold text-[#ffd100]" />
+              {home.hero.sloganPrefix}&nbsp;
+              <TypedText strings={[...home.hero.usages]} className="font-semibold text-[#ffd100]" />
             </p>
           </motion.div>
 
@@ -116,40 +98,49 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
               onClick={() => go("catalogue")}
               className="fluid-btn inline-flex min-h-12 w-full items-center justify-center gap-3 bg-[#ffd100] px-5 py-3 text-center font-bold uppercase text-[#171816] transition active:scale-[0.98] hover:bg-white sm:min-h-11 sm:w-auto"
             >
-              {content.accueil.hero.boutonCatalogue} <FontAwesomeIcon icon={faArrowRight} className="shrink-0" />
+              {home.hero.boutonCatalogue} <FontAwesomeIcon icon={faArrowRight} className="shrink-0" />
             </button>
-            <button
-              onClick={() => go("product", current.id)}
-              className="glass-panel fluid-btn inline-flex min-h-12 w-full items-center justify-center gap-3 border-white/40 bg-white/10 px-5 py-3 text-center font-bold uppercase text-white transition active:scale-[0.98] hover:border-[#ffd100] hover:text-[#ffd100] sm:min-h-11 sm:w-auto"
-            >
-              <span className="truncate">{current.short}</span>
-              <FontAwesomeIcon icon={faArrowRight} className="shrink-0" />
-            </button>
+            {current && (
+              <button
+                onClick={() => {
+                  const ref = current.bikeId;
+                  if (ref && bikes.some((b) => b.id === ref)) return go("product", ref);
+                  if (ref) return go("accessory", ref);
+                  return go("catalogue");
+                }}
+                className="glass-panel fluid-btn inline-flex min-h-12 w-full items-center justify-center gap-3 border-white/40 bg-white/10 px-5 py-3 text-center font-bold uppercase text-white transition active:scale-[0.98] hover:border-[#ffd100] hover:text-[#ffd100] sm:min-h-11 sm:w-auto"
+              >
+                <span className="truncate">{current.short}</span>
+                <FontAwesomeIcon icon={faArrowRight} className="shrink-0" />
+              </button>
+            )}
           </motion.div>
 
           <div className="order-2 mt-auto flex items-center justify-between gap-3 border-t border-white/30 pr-16 pt-3 sm:order-3 sm:items-end sm:gap-4 sm:pr-0 sm:pt-5">
             <div className="min-w-0 text-white">
               <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={current.id + "caption"}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.25 }}
-                >
-                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#ffd100]">{content.accueil.hero.aLaUne} / {current.brand}</p>
-                  <p className="mt-0.5 truncate font-display text-sm font-semibold sm:mt-1 sm:text-base">
-                    {current.short} · {content.accueil.hero.annee}
-                  </p>
-                </motion.div>
+                {current && (
+                  <motion.div
+                    key={current.id + "caption"}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.25 }}
+                  >
+                    <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#ffd100]">{home.hero.aLaUne} / {current.brand}</p>
+                    <p className="mt-0.5 truncate font-display text-sm font-semibold sm:mt-1 sm:text-base">
+                      {current.short} · {home.hero.annee}
+                    </p>
+                  </motion.div>
+                )}
               </AnimatePresence>
             </div>
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
               <span className="font-display text-[11px] font-semibold text-white/70 sm:mr-1 sm:text-xs">
-                0{activeHero + 1}
+                {String(Math.min(activeHero + 1, Math.max(slides.length, 1))).padStart(2, "0")}
               </span>
               <div className="flex items-center" aria-label={content.accueil.hero.choisirModele}>
-                {FEATURED.map((item, index) => (
+                {slides.map((item, index) => (
                   <button
                     key={item.id}
                     onClick={() => setActiveHero(index)}
@@ -161,7 +152,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
                   </button>
                 ))}
               </div>
-              <span className="font-display text-[11px] font-semibold text-white/50 sm:text-xs">03</span>
+              <span className="font-display text-[11px] font-semibold text-white/50 sm:text-xs">{totalSlides}</span>
             </div>
           </div>
         </div>
@@ -172,22 +163,22 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
         <div className="grid gap-5 border-t border-black/15 pt-4 dark:border-white/15 sm:grid-cols-[0.75fr_1.25fr] sm:gap-8">
           <div>
             <p className="fluid-eyebrow mb-2 font-bold uppercase text-[#98741b] dark:text-[#ffd100]">
-              {content.accueil.univers.surTitre}
+              {home.univers.surTitre}
             </p>
             <h2 className="fluid-h2 font-display font-semibold text-[#171816] dark:text-[#f2f0ea]">
-              {content.accueil.univers.titre}
+              {home.univers.titre}
             </h2>
           </div>
             <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
-            {CATEGORIES.map((category, index) => (
+            {categories.map((category, index) => (
               <motion.button
-                key={category.title}
-                onClick={() => go(category.to, category.brand)}
+                key={category.id}
+                onClick={() => go(category.to, category.brand ?? undefined)}
                 whileHover={{ x: 4 }}
                 className="group flex min-h-14 items-center gap-3 border-b border-black/10 px-2 py-3 text-left transition hover:bg-white/65 hover:backdrop-blur-xl dark:border-white/15 dark:hover:bg-white/[0.035]"
               >
                 <span className="w-7 font-display text-[10px] text-black/40 dark:text-white/40">0{index + 1}</span>
-                <FontAwesomeIcon icon={CATEGORY_ICONS[index]} className="w-4 text-[12px] text-[#98741b] dark:text-[#ffd100]" />
+                <FontAwesomeIcon icon={CATEGORY_ICONS[index % CATEGORY_ICONS.length]} className="w-4 text-[12px] text-[#98741b] dark:text-[#ffd100]" />
                 <span className="flex-1 font-display text-sm font-semibold text-[#171816] dark:text-[#f2f0ea]">{category.title}</span>
                 <FontAwesomeIcon icon={faArrowRight} className="text-[10px] text-black/40 transition group-hover:translate-x-1 group-hover:text-[#98741b] dark:text-white/40 dark:group-hover:text-[#ffd100]" />
               </motion.button>
@@ -203,13 +194,13 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
       <NewArrivals go={go} />
 
       <Section
-        title={content.accueil.motos.titre}
-        subtitle={content.accueil.motos.description}
-        number={content.accueil.motos.numero}
+        title={home.motos.titre}
+        subtitle={home.motos.description}
+        number={home.motos.numero}
       >
         <div className="grid gap-x-5 gap-y-8 sm:grid-cols-2 sm:gap-x-6 lg:grid-cols-3 lg:gap-x-8">
-          {FEATURED.map((featured) => {
-            const model = BIKES.find((item) => item.id === featured.id);
+          {slides.map((featured) => {
+            const model = featured.bikeId ? bikes.find((item) => item.id === featured.bikeId) : undefined;
             return model ? <BikeCard key={model.id} bike={model} go={go} /> : null;
           })}
         </div>
@@ -217,7 +208,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
           onClick={() => go("motos")}
           className="mt-8 inline-flex items-center gap-2 border-b border-[#171816] pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#171816] transition hover:border-[#98741b] hover:text-[#98741b] dark:border-[#f2f0ea] dark:text-[#f2f0ea] dark:hover:text-[#ffd100]"
         >
-          {content.accueil.motos.bouton} <FontAwesomeIcon icon={faArrowRight} />
+          {home.motos.bouton} <FontAwesomeIcon icon={faArrowRight} />
         </button>
       </Section>
 
@@ -225,13 +216,13 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
         <div className="mx-auto w-full max-w-(--container-site) px-4 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-t border-black/15 pt-4 dark:border-white/15 sm:mb-7">
             <div>
-              <p className="fluid-eyebrow mb-2 font-bold uppercase text-[#98741b] dark:text-[#ffd100]">{content.accueil.atelier.surTitre}</p>
+              <p className="fluid-eyebrow mb-2 font-bold uppercase text-[#98741b] dark:text-[#ffd100]">{home.atelier.surTitre}</p>
               <h2 className="fluid-h2 font-display font-semibold text-[#171816] dark:text-[#f2f0ea]">
-                {content.accueil.atelier.titre}
+                {home.atelier.titre}
               </h2>
             </div>
             <p className="fluid-body max-w-sm text-black/55 dark:text-white/55">
-              {content.accueil.atelier.description}
+              {home.atelier.description}
             </p>
           </div>
 
@@ -239,20 +230,23 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
             <AccessoryBrandQuickLinks onSelect={(brand) => go("equipements", brand)} />
           </div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-4 lg:grid-cols-4 lg:gap-x-5">
-            {[TVS_PARTS[0], TVS_PARTS[2], TVS_ACCESSORIES[0], TVS_ACCESSORIES[2]].map((part) => (
-              <PartCard
-                key={part.id}
-                part={part}
-                go={go}
-                onEnquire={() => go("contact", part.id)}
-              />
-            ))}
+            {home.atelier.productIds
+              .map((id) => findPart(id))
+              .filter((part) => Boolean(part))
+              .map((part) => (
+                <PartCard
+                  key={part!.id}
+                  part={part!}
+                  go={go}
+                  onEnquire={() => go("contact", part!.id)}
+                />
+              ))}
           </div>
           <button
             onClick={() => go("equipements")}
           className="mt-8 inline-flex items-center gap-2 border-b border-[#171816] pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#171816] transition hover:border-[#98741b] hover:text-[#98741b] dark:border-[#f2f0ea] dark:text-[#f2f0ea] dark:hover:text-[#ffd100]"
           >
-            {content.accueil.atelier.bouton} <FontAwesomeIcon icon={faArrowRight} />
+            {home.atelier.bouton} <FontAwesomeIcon icon={faArrowRight} />
           </button>
         </div>
       </section>
@@ -260,8 +254,8 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
       <section className="glass-header overflow-hidden border-y border-white/70 py-10 dark:border-white/10">
         <div className="mx-auto w-full max-w-(--container-site) px-4 sm:px-7 lg:px-10">
           <div className="mb-5 flex items-center justify-between border-t border-black/15 pt-3 dark:border-white/15">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/45 dark:text-white/45">{content.accueil.partenaires.titre}</p>
-            <span className="text-[9px] uppercase tracking-[0.16em] text-black/35 dark:text-white/35">{content.accueil.partenaires.description}</span>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/45 dark:text-white/45">{home.partenaires.titre}</p>
+            <span className="text-[9px] uppercase tracking-[0.16em] text-black/35 dark:text-white/35">{home.partenaires.description}</span>
           </div>
           <div className="group/marquee relative overflow-hidden">
             {/* Fade edges so logos slide in and out smoothly */}
@@ -275,16 +269,16 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
             />
 
             <div className="fb-partner-track flex w-max items-center gap-6 pr-6 sm:gap-10 sm:pr-10">
-              {[...BRANDS, ...BRANDS].map((brand, index) => (
+              {[...brands, ...brands].map((brand, index) => (
                 <motion.div
-                  key={`${brand.name}-${index}`}
+                  key={`${brand.id}-${index}`}
                   whileHover={{ scale: 1.08 }}
                   transition={{ type: "spring", stiffness: 320, damping: 20 }}
                   className="brand-logo-tile shrink-0"
                 >
                   <img
                     src={brand.src}
-                    alt={`${content.accueil.partenaires.logoPrefix} ${brand.name}`}
+                    alt={`${home.partenaires.titre} ${brand.name}`}
                     loading="lazy"
                     className="partner-logo h-full w-full object-contain transition-opacity hover:opacity-100"
                   />

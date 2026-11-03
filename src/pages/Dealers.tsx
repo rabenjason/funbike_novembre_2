@@ -13,17 +13,10 @@ import {
   faPlus,
 } from "@fortawesome/free-solid-svg-icons";
 
-import type { Dealer } from "../types";
+import type { Dealer } from "../lib/api";
+import { useSiteData } from "../lib/store";
 
 export type { Dealer };
-
-// Verify contact details and exact street coordinates before publishing.
-export const DEALERS: Dealer[] = [
-  { key: "antananarivo", city: "Antananarivo", name: "Funbike Showroom", kind: "Showroom principal", address: "Ambodivona, Antananarivo", hours: "Lun – Sam · 8h30 – 17h30", phone: "+261 34 00 000 00", email: "contact@funbike.mg", desc: "Le point de départ de votre prochaine aventure. Retrouvez les motos, les équipements et notre atelier à la même adresse.", lat: -18.8792, lon: 47.5079, services: ["Motos", "Essais", "Atelier", "Pièces"] },
-  { key: "toamasina", city: "Toamasina", name: "Funbike Est", kind: "Point de vente", address: "Boulevard Joffre, Toamasina", hours: "Lun – Ven · 9h – 17h", phone: "+261 34 11 111 11", email: "est@funbike.mg", desc: "Sur la côte est, une équipe à vos côtés pour choisir votre moto, vous équiper et assurer l'entretien courant.", lat: -18.1492, lon: 49.4023, services: ["Motos", "Équipements", "Entretien"] },
-  { key: "mahajanga", city: "Mahajanga", name: "Funbike Nord-Ouest", kind: "Point de vente", address: "Avenue de France, Mahajanga", hours: "Lun – Ven · 9h – 17h", phone: "+261 34 22 222 22", email: "ouest@funbike.mg", desc: "Votre relais Funbike dans le nord-ouest pour les motos, les essais et les commandes de pièces.", lat: -15.7167, lon: 46.3167, services: ["Motos", "Essais", "Pièces"] },
-  { key: "fianarantsoa", city: "Fianarantsoa", name: "Atelier Partenaire", kind: "Atelier partenaire", address: "Route nationale 7, Fianarantsoa", hours: "Lun – Sam · 8h – 16h", phone: "+261 34 33 333 33", email: "sud@funbike.mg", desc: "Sur la RN7, un atelier partenaire pour l'entretien, les réparations et le montage de pièces.", lat: -21.4527, lon: 47.0857, services: ["Atelier", "Pièces", "Entretien"] },
-];
 
 const ZOOMS = [0.22, 0.12, 0.065, 0.035];
 const osmEmbed = (lat: number, lon: number, d: number) =>
@@ -35,6 +28,7 @@ const ICON = "w-4 shrink-0 text-[#98741b] dark:text-[#ffd100]";
 const LABEL = "text-[10px] font-semibold uppercase tracking-[0.1em] text-black/40 dark:text-white/40";
 
 export default function Dealers({ go, initialCity }: { go: (p: string, id?: string) => void; initialCity?: string }) {
+  const { dealers: DEALERS } = useSiteData();
   const valid = DEALERS.some((d) => d.key === initialCity);
   const [activeKey, setActiveKey] = useState(valid ? initialCity! : DEALERS[0].key);
   const [zoom, setZoom] = useState(1);

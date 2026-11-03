@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faArrowUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import { motion } from "framer-motion";
-import type { Bike, Part } from "../data";
+import type { Bike, Part } from "../lib/api";
 import SmartImage from "./SmartImage";
 
 export function BikeCard({ bike, go }: { bike: Bike; go: (p: string, id?: string) => void }) {

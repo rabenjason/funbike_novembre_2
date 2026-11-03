@@ -1,0 +1,18 @@
+{
+  "name": "funbike-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend GraphQL du site Funbike (catalogue, accueil configurable, admin).",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "seed": "node scripts/reseed.js",
+    "build-seed": "cd .. && npx tsx server/scripts/build-seed.ts"
+  },
+  "dependencies": {
+    "@graphql-tools/schema": "^10.0.25",
+    "graphql": "^16.12.0",
+    "graphql-yoga": "^5.18.0"
+  }
+}

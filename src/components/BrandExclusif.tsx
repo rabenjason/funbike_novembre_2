@@ -1,6 +1,6 @@
 import { motion, type Variants } from "framer-motion";
 import SmartImage from "./SmartImage";
-import { content } from "../constants/content";
+import { useSiteData } from "../lib/store";
 
 export type ExclusiveBrand = {
   key: string;
@@ -8,27 +8,6 @@ export type ExclusiveBrand = {
   tagline: string;
   image: string;
 };
-
-export const EXCLUSIVE_BRANDS: ExclusiveBrand[] = [
-  {
-    key: "tvs",
-    name: "TVS",
-    tagline: "Robustesse garantie",
-    image: "https://funbike.mg/wp-content/uploads/2026/02/tvs-logo.png",
-  },
-  {
-    key: "fantic",
-    name: "Fantic",
-    tagline: "Performance italienne",
-    image: "https://funbike.mg/wp-content/themes/funbike/images/fantic.png",
-  },
-  {
-    key: "sherco",
-    name: "Sherco",
-    tagline: "ADN Compétition",
-    image: "https://funbike.mg/wp-content/uploads/2026/02/sherco.png",
-  },
-];
 
 const list: Variants = {
   hidden: {},
@@ -41,6 +20,8 @@ const item: Variants = {
 };
 
 export default function BrandExclusif({ go }: { go: (p: string, id?: string) => void }) {
+  const { home } = useSiteData();
+  const distributeur = home.distributeur;
   return (
     <section className="py-10 sm:py-12 lg:py-14">
       <div className="mx-auto w-full max-w-(--container-site) px-4 sm:px-7 lg:px-10">
@@ -48,17 +29,17 @@ export default function BrandExclusif({ go }: { go: (p: string, id?: string) => 
           <div className="mb-6 flex flex-col items-center justify-center gap-2 border-t border-black/15 pt-6 sm:mb-8 sm:flex-row sm:items-end sm:justify-between sm:pt-8 dark:border-white/15">
             <div className="w-full text-center sm:w-auto sm:text-left">
               <p className="fluid-eyebrow font-bold uppercase tracking-[0.2em] text-[#876914] dark:text-[#ffd100]">
-                {content.accueil.distributeur.surTitre}
+                {distributeur.surTitre}
               </p>
               <h2 className="mt-1.5 font-display text-[clamp(1.35rem,1.1rem+1.8vw,2.2rem)] font-semibold leading-tight tracking-[-0.04em] text-[#171816] dark:text-[#f2f0ea]">
-                {content.accueil.distributeur.titre}
+                {distributeur.titre}
               </h2>
             </div>
             <button
               onClick={() => go("motos")}
               className="fluid-btn hidden items-center gap-2 border-b border-black/30 pb-0.5 font-bold uppercase text-black/50 transition hover:border-[#98741b] hover:text-[#98741b] dark:border-white/30 dark:text-white/50 dark:hover:border-[#ffd100] dark:hover:text-[#ffd100] sm:inline-flex"
             >
-              {content.accueil.distributeur.boutonToutVoir}
+              {distributeur.boutonToutVoir}
             </button>
           </div>
 
@@ -69,7 +50,7 @@ export default function BrandExclusif({ go }: { go: (p: string, id?: string) => 
             viewport={{ once: true, amount: 0.15 }}
             className="grid grid-cols-3 gap-2.5 sm:gap-5"
           >
-            {EXCLUSIVE_BRANDS.map((brand) => (
+            {home.exclusiveBrands.map((brand) => (
               <motion.button
                 key={brand.key}
                 variants={item}
@@ -82,7 +63,7 @@ export default function BrandExclusif({ go }: { go: (p: string, id?: string) => 
                 <div className="flex h-14 w-full items-center justify-center sm:h-20">
                   <SmartImage
                     src={brand.image}
-                    alt={`${content.accueil.distributeur.logoPrefix} ${brand.name}`}
+                    alt={`Logo ${brand.name}`}
                     className="h-9 w-full max-w-[90px] sm:h-12 sm:max-w-[130px]"
                     imgClassName="object-contain transition-transform duration-500 group-hover:scale-105"
                   />
@@ -104,7 +85,7 @@ export default function BrandExclusif({ go }: { go: (p: string, id?: string) => 
               onClick={() => go("motos")}
               className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-black/55 transition hover:text-[#98741b] dark:text-white/55 dark:hover:text-[#ffd100]"
             >
-              {content.accueil.distributeur.boutonToutesMotos} <span aria-hidden="true">→</span>
+              {distributeur.boutonToutesMotos} <span aria-hidden="true">→</span>
             </button>
           </div>
         </div>

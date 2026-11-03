@@ -3,22 +3,21 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faClock, faEnvelope, faLocationDot, faPhone } from "@fortawesome/free-solid-svg-icons";
 import { PageHeader } from "../components/Layout";
-import { PARTS, TVS_PARTS, SHERCO_PARTS, FANTIC_PARTS, TVS_ACCESSORIES } from "../data";
-
-const CONTACT_EMAIL = "contact@funbike.mg";
-const CONTACT_INFO = [
-  { icon: faLocationDot, label: "Showroom & atelier", value: "Antananarivo, Madagascar" },
-  { icon: faClock, label: "Horaires", value: "Lun - sam · 8h00 - 17h30" },
-  { icon: faPhone, label: "Téléphone", value: "+261 34 00 000 00", href: "tel:+261340000000" },
-  { icon: faEnvelope, label: "Email", value: CONTACT_EMAIL, href: `mailto:${CONTACT_EMAIL}` },
-];
+import { useSiteData } from "../lib/store";
+import { findPart } from "../lib/catalog";
 
 export default function Contact({ inquiryId }: { inquiryId?: string }) {
+  const { settings } = useSiteData();
   const [sent, setSent] = useState(false);
-  const accessory = [...TVS_ACCESSORIES, ...PARTS, ...TVS_PARTS, ...SHERCO_PARTS, ...FANTIC_PARTS].find(
-    (item) => item.id === inquiryId,
-  );
+  const accessory = findPart(inquiryId);
   const inquirySubject = accessory?.kind === "tvs" ? "tvs-accessoires" : accessory ? "pieces" : "";
+
+  const CONTACT_INFO = [
+    { icon: faLocationDot, label: "Showroom & atelier", value: settings.city ? `${settings.city}, ${settings.country}` : settings.address },
+    { icon: faClock, label: "Horaires", value: settings.hoursShort },
+    { icon: faPhone, label: "Téléphone", value: settings.phoneDisplay, href: settings.phoneLink },
+    { icon: faEnvelope, label: "Email", value: settings.email, href: `mailto:${settings.email}` },
+  ];
 
   return (
     <div className="bg-white dark:bg-[#141513]">
@@ -75,7 +74,7 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
               `Email : ${String(values.get("email") ?? "")}`,
               String(values.get("whatsapp") ?? "") ? `WhatsApp : ${String(values.get("whatsapp"))}` : "WhatsApp : non renseigné",
             ].join("\n");
-            window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.location.href = `mailto:${settings.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             setSent(true);
           }}
           className="glass-panel border-t border-black/20 p-5 dark:border-white/20 sm:p-8"

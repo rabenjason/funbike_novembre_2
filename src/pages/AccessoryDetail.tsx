@@ -8,7 +8,8 @@ import {
   faMagnifyingGlassPlus,
   faPhone,
 } from "@fortawesome/free-solid-svg-icons";
-import { ALL_PARTS, findPart, partBrandLabel, partFamily, type Part } from "../data";
+import { findPart, getParts, partBrandLabel, partFamily } from "../lib/catalog";
+import type { Part } from "../lib/api";
 import { Section, type Route } from "../components/Layout";
 import { PartCard } from "../components/Cards";
 import SmartImage from "../components/SmartImage";
@@ -52,7 +53,7 @@ function autoSpecs(part: Part): { label: string; value: string }[] {
 }
 
 export default function AccessoryDetail({ id, go, back, backLabel }: Props) {
-  const part = findPart(id) ?? ALL_PARTS[0];
+  const part = findPart(id) ?? getParts()[0];
   const gallery = part.gallery && part.gallery.length ? part.gallery : [part.image];
   const [active, setActive] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -60,7 +61,7 @@ export default function AccessoryDetail({ id, go, back, backLabel }: Props) {
   const desc = autoDesc(part);
   const eyebrow = `${partBrandLabel(part)} / ${partFamily(part)}`.toUpperCase();
 
-  const related = ALL_PARTS.filter((p) => {
+  const related = getParts().filter((p) => {
     if (p.id === part.id) return false;
     if (p.kind === part.kind) return true;
     if (part.kind === "piece" && p.kind === "piece" && p.compatibleBrand === part.compatibleBrand) return true;

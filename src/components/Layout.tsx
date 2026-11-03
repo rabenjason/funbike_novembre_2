@@ -18,7 +18,7 @@ import {
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { AnimatePresence, motion } from "framer-motion";
-import { LOGO } from "../data";
+import { useSiteData } from "../lib/store";
 import { content } from "../constants/content";
 
 export type Route = { page: string; id?: string };
@@ -33,10 +33,11 @@ export const NAV = [
 ];
 
 function BrandMark({ large = false }: { large?: boolean }) {
+  const { settings } = useSiteData();
   return (
     <img
-      src={LOGO}
-      alt={content.site.logoAlt}
+      src={settings.logoUrl}
+      alt={settings.logoAlt}
       className={
         "logo-clean block w-auto object-contain " +
         (large
@@ -59,10 +60,11 @@ export function Header({
   toggle: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const { settings } = useSiteData();
   return (
     <header className="glass-header sticky top-0 z-40 border-b border-black/10 dark:border-white/10">
       <div className="mx-auto flex h-[64px] w-full max-w-(--container-site) items-center gap-4 px-4 sm:h-[68px] sm:px-7 lg:px-10">
-        <button onClick={() => go("home")} aria-label={`${content.site.nom}, ${content.navigation.accueil.toLowerCase()}`} className="shrink-0">
+        <button onClick={() => go("home")} aria-label={`${settings.siteName}, ${content.navigation.accueil.toLowerCase()}`} className="shrink-0">
           <BrandMark />
         </button>
 
@@ -166,6 +168,7 @@ export function ThemeToggle({ dark, toggle }: { dark: boolean; toggle: () => voi
 }
 
 export function Footer({ go, onCookies }: { go: (p: string, id?: string) => void; onCookies: () => void }) {
+  const { settings } = useSiteData();
   function scrollTop() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -322,30 +325,30 @@ export function Footer({ go, onCookies }: { go: (p: string, id?: string) => void
                 <span className="leading-snug">
                   {content.footer.showroom}
                   <br />
-                  <span className="text-white/50">{content.footer.adresse}</span>
+                  <span className="text-white/50">{settings.address}</span>
                 </span>
               </li>
               <li>
                 <a
-                  href="tel:+261340000000"
+                  href={settings.phoneLink}
                   className="flex min-h-10 items-center gap-3 text-white/85 transition hover:text-[#ffd100]"
                 >
                   <FontAwesomeIcon icon={faPhone} className="w-3.5 shrink-0 text-[#ffd100]" />
-                  <span className="font-semibold">{content.site.telephoneAffiche}</span>
+                  <span className="font-semibold">{settings.phoneDisplay}</span>
                 </a>
               </li>
               <li>
                 <a
-                  href="mailto:contact@funbike.mg"
+                  href={`mailto:${settings.email}`}
                   className="flex min-h-10 items-center gap-3 text-white/85 transition hover:text-[#ffd100]"
                 >
                   <FontAwesomeIcon icon={faEnvelope} className="w-3.5 shrink-0 text-[#ffd100]" />
-                  <span className="break-all font-semibold">{content.site.email}</span>
+                  <span className="break-all font-semibold">{settings.email}</span>
                 </a>
               </li>
               <li className="flex items-center gap-3 text-white/60">
                 <FontAwesomeIcon icon={faClock} className="w-3.5 shrink-0 text-[#ffd100]" />
-                <span>{content.site.horaires}</span>
+                <span>{settings.hours}</span>
               </li>
             </ul>
 

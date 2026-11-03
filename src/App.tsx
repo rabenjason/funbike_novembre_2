@@ -10,10 +10,9 @@ import Product from "./pages/Product";
 import AccessoryDetail from "./pages/AccessoryDetail";
 import Contact from "./pages/Contact";
 import Dealers from "./pages/Dealers";
-import { BIKES, findPart } from "./data";
-
-const FIRST_HERO =
-  "https://funbike.mg/wp-content/uploads/2026/02/01-250-SEF-FACTORY-2026-3679x2456-1-1920x1080-1.jpg";
+import { SiteProvider, useSite } from "./lib/store";
+import { findBike, findPart } from "./lib/catalog";
+import AdminApp from "./admin/AdminApp";
 
 function sameRoute(a: Route, b: Route) {
   return a.page === b.page && (a.id ?? "") === (b.id ?? "");
@@ -32,7 +31,7 @@ function routeLabel(route: Route): string {
     case "spares":
       return "Pièces détachées";
     case "product": {
-      const bike = BIKES.find((b) => b.id === route.id);
+      const bike = findBike(route.id);
       return bike ? bike.name : "Fiche moto";
     }
     case "accessory": {
@@ -48,7 +47,22 @@ function routeLabel(route: Route): string {
   }
 }
 
-export default function App() {
+/** Détecte /admin dans l'URL (le dashboard partage le même serveur de dev). */
+function useIsAdmin(): boolean {
+  const [isAdmin, setIsAdmin] = useState(
+    () => window.location.pathname.replace(/\/+$/, "").startsWith("/admin"),
+  );
+  useEffect(() => {
+    const onPop = () =>
+      setIsAdmin(window.location.pathname.replace(/\/+$/, "").startsWith("/admin"));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  return isAdmin;
+}
+
+function PublicSite() {
+  const { data, loading, error, reload } = useSite();
   const [dark, setDark] = useState(
     () => localStorage.getItem("fb-theme") !== "light",
   );
@@ -71,26 +85,12 @@ export default function App() {
     document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", dark ? "#141513" : "#ffffff");
   }, [dark]);
 
-  // Fast splash: wait for the first hero photo (min 650 ms, max 1.6 s)
+  // Splash court : attend le chargement des données GraphQL (min 650 ms, max 2 s)
   useEffect(() => {
-    let done = false;
-    const start = performance.now();
-    const finish = () => {
-      if (done) return;
-      done = true;
-      const wait = Math.max(0, 650 - (performance.now() - start));
-      window.setTimeout(() => setBooting(false), wait);
-    };
-    const img = new Image();
-    img.onload = finish;
-    img.onerror = finish;
-    img.src = FIRST_HERO;
-    const cap = window.setTimeout(finish, 1600);
-    return () => {
-      done = true;
-      window.clearTimeout(cap);
-    };
-  }, []);
+    if (loading) return;
+    const timer = window.setTimeout(() => setBooting(false), 250);
+    return () => window.clearTimeout(timer);
+  }, [loading]);
 
   // Cookie banner appears once the splash is gone, only if no choice was saved
   useEffect(() => {
@@ -149,6 +149,34 @@ export default function App() {
     [],
   );
 
+  if (error && !loading) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-white px-6 text-[#171816] dark:bg-[#141513] dark:text-[#f2f0ea]">
+        <div className="max-w-md text-center">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#98741b] dark:text-[#ffd100]">
+            Funbike / Madagascar
+          </p>
+          <h1 className="mt-3 font-display text-2xl font-semibold">Impossible de charger le site</h1>
+          <p className="mt-3 text-sm text-black/55 dark:text-white/55">
+            Le serveur de données (API GraphQL) ne répond pas. Vérifiez qu'il est démarré, puis réessayez.
+          </p>
+          <p className="mt-2 break-all text-xs text-black/40 dark:text-white/40">{error}</p>
+          <button
+            onClick={reload}
+            className="mt-6 bg-[#ffd100] px-6 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-[#171816] transition hover:bg-white"
+          >
+            Réessayer
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Tant que les données GraphQL ne sont pas arrivées, on ne monte aucune page.
+  if (!data) {
+    return <SplashLoader show />;
+  }
+
   return (
     <MotionConfig reducedMotion="user">
       <SplashLoader show={booting} />
@@ -186,5 +214,18 @@ export default function App() {
         <CookieConsent open={cookieOpen} onClose={() => setCookieOpen(false)} />
       </div>
     </MotionConfig>
+  );
+}
+
+function Shell() {
+  const isAdmin = useIsAdmin();
+  return isAdmin ? <AdminApp /> : <PublicSite />;
+}
+
+export default function App() {
+  return (
+    <SiteProvider>
+      <Shell />
+    </SiteProvider>
   );
 }

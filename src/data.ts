@@ -1,8 +1,17 @@
+/**
+ * ⚠️ Fichier SOURCE DU SEED uniquement.
+ *
+ * Ces données statiques ne sont plus lues par le frontend : elles servent
+ * exclusivement à initialiser le backend GraphQL
+ * (voir server/scripts/build-seed.ts → server/data/seed.json).
+ * Le site et le dashboard /admin consomment l'API /graphql.
+ */
 import type {
   AccessoryCategory,
   Bike,
   Brand,
   Category,
+  Dealer,
   Part,
   PartType,
 } from "./types";
@@ -779,3 +788,92 @@ export function partFamily(part: Part): "Équipement" | "Pièce détachée" {
 /* ------------------------------------------------------------------ */
 /*  Update Part type to support gaerne and mt kinds                    */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/*  Revendeurs (source seed du backend)                                */
+/*  Coordonnées indicatives à vérifier avant publication.              */
+/* ------------------------------------------------------------------ */
+
+export const DEALERS: Dealer[] = [
+  {
+    key: "antananarivo",
+    city: "Antananarivo",
+    name: "Funbike Showroom",
+    kind: "Showroom principal",
+    address: "Ambodivona, Antananarivo",
+    hours: "Lun – Sam · 8h30 – 17h30",
+    phone: "+261 34 00 000 00",
+    email: "contact@funbike.mg",
+    desc: "Le point de départ de votre prochaine aventure. Retrouvez les motos, les équipements et notre atelier à la même adresse.",
+    lat: -18.8792,
+    lon: 47.5079,
+    services: ["Motos", "Essais", "Atelier", "Pièces"],
+  },
+  {
+    key: "toamasina",
+    city: "Toamasina",
+    name: "Funbike Est",
+    kind: "Point de vente",
+    address: "Boulevard Joffre, Toamasina",
+    hours: "Lun – Ven · 9h – 17h",
+    phone: "+261 34 11 111 11",
+    email: "est@funbike.mg",
+    desc: "Sur la côte est, une équipe à vos côtés pour choisir votre moto, vous équiper et assurer l'entretien courant.",
+    lat: -18.1492,
+    lon: 49.4023,
+    services: ["Motos", "Équipements", "Entretien"],
+  },
+  {
+    key: "mahajanga",
+    city: "Mahajanga",
+    name: "Funbike Nord-Ouest",
+    kind: "Point de vente",
+    address: "Avenue de France, Mahajanga",
+    hours: "Lun – Ven · 9h – 17h",
+    phone: "+261 34 22 222 22",
+    email: "ouest@funbike.mg",
+    desc: "Votre relais Funbike dans le nord-ouest pour les motos, les essais et les commandes de pièces.",
+    lat: -15.7167,
+    lon: 46.3167,
+    services: ["Motos", "Essais", "Pièces"],
+  },
+  {
+    key: "fianarantsoa",
+    city: "Fianarantsoa",
+    name: "Atelier Partenaire",
+    kind: "Atelier partenaire",
+    address: "Route nationale 7, Fianarantsoa",
+    hours: "Lun – Sam · 8h – 16h",
+    phone: "+261 34 33 333 33",
+    email: "sud@funbike.mg",
+    desc: "Sur la RN7, un atelier partenaire pour l'entretien, les réparations et le montage de pièces.",
+    lat: -21.4527,
+    lon: 47.0857,
+    services: ["Atelier", "Pièces", "Entretien"],
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Marques exclusives de l'accueil (source seed du backend)            */
+/* ------------------------------------------------------------------ */
+
+export const EXCLUSIVE_BRANDS: { key: string; name: string; tagline: string; image: string }[] = [
+  {
+    key: "tvs",
+    name: "TVS",
+    tagline: "Robustesse garantie",
+    image: "https://funbike.mg/wp-content/uploads/2026/02/tvs-logo.png",
+  },
+  {
+    key: "fantic",
+    name: "Fantic",
+    tagline: "Performance italienne",
+    image: "https://funbike.mg/wp-content/themes/funbike/images/fantic.png",
+  },
+  {
+    key: "sherco",
+    name: "Sherco",
+    tagline: "ADN Compétition",
+    image: "https://funbike.mg/wp-content/uploads/2026/02/sherco.png",
+  },
+];
