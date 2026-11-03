@@ -7,27 +7,48 @@ accessible sur [`/admin`](http://localhost:5173/admin).
 ## Architecture
 
 ```
-┌──────────────────────────┐        ┌───────────────────────────────┐
-│  Front (Vite + React)    │        │  Backend (Node + GraphQL Yoga)│
-│  http://localhost:5173   │        │  http://localhost:4000        │
-│                          │        │                               │
-│  /        → site public  │ /graphql│  API GraphQL (lecture publique│
-│  /admin   → dashboard    │ ◄─────►│  + mutations admin par jeton) │
-│                          │ /uploads│  Upload d'images + statiques  │
-└──────────────────────────┘        │  SQLite (node:sqlite)         │
-      proxy Vite (vite.config.ts)   └───────────────────────────────┘
+┌──────────────────────────┐        ┌────────────────────────────────────┐
+│  Front (Vite + React)    │        │  Backend (Node + GraphQL Yoga)     │
+│  http://localhost:5173   │        │  http://localhost:4000             │
+│                          │        │                                    │
+│  /        → site public  │ /graphql│  API GraphQL (lecture publique     │
+│  /admin   → dashboard    │ ◄─────►│  + mutations admin par jeton JWT)  │
+│                          │ /uploads│  Upload d'images + statiques       │
+└──────────────────────────┘        │  MySQL (phpMyAdmin) — repli SQLite │
+      proxy Vite (vite.config.ts)   └────────────────────────────────────┘
 ```
 
 - **Toutes les données du site** (motos, produits, marques, catégories, revendeurs,
   textes de l'accueil, paramètres) sont lues via `POST /graphql` — plus aucune
   donnée statique dans le frontend.
+- **Base de données MySQL** (voir `.env` → `DATABASE_URL`), avec des tables
+  réelles consultables/éditables dans **phpMyAdmin** (schéma :
+  `server/sql/schema.mysql.sql`). Si MySQL est injoignable, le backend bascule
+  automatiquement sur un stockage **SQLite local** (journalisé) pour le dev.
 - `src/data.ts` et `src/constants/content.ts` ne servent qu'à **générer le seed**
   du backend (schéma + données initiales) : `npm run build-seed`.
 - Le dashboard `/admin` partage le même serveur Vite que le site.
 
+## Configuration (`.env`)
+
+Copier `.env.example` en `.env` à la racine du projet :
+
+| Variable                 | Rôle                                                        |
+| ------------------------ | ----------------------------------------------------------- |
+| `DATABASE_URL`           | Connexion MySQL `mysql://user:pass@hôte:3306/base` (phpMyAdmin) |
+| `API_PORT`               | Port de l'API GraphQL (défaut `4000`)                       |
+| `API_PROXY_TARGET`       | Cible du proxy Vite (`http://127.0.0.1:4000`)               |
+| `JWT_SECRET`             | Signature des jetons du dashboard                           |
+| `JWT_EXPIRES_IN`         | Durée des jetons (défaut `8h`)                              |
+| `INITIAL_ADMIN_EMAIL`    | Compte admin créé au premier démarrage (login `/admin`)     |
+| `INITIAL_ADMIN_PASSWORD` | Mot de passe de ce compte (modifiable dans `/admin`)        |
+
 ## Démarrage
 
 ```bash
+# 0. MySQL : créer la base (ou importer server/sql/schema.mysql.sql dans phpMyAdmin)
+#    CREATE DATABASE funbike CHARACTER SET utf8mb4;
+
 # 1. Backend (port 4000)
 cd server && npm install && npm start
 
@@ -37,9 +58,10 @@ npm install && npm run dev
 
 - Site : http://localhost:5173/
 - Dashboard : http://localhost:5173/admin
-  (identifiants par défaut : `admin` / `funbike2026` — variables d'environnement
-  `ADMIN_USER`, `ADMIN_PASSWORD`, `JWT_SECRET` côté serveur)
+  (compte initial : `INITIAL_ADMIN_EMAIL` / `INITIAL_ADMIN_PASSWORD` du `.env`)
 - GraphiQL : http://localhost:4000/graphql
+- phpMyAdmin : ouvrir la base `funbike` pour voir les tables
+  (`bikes`, `parts`, `hero_slides`, `home_content`, `settings`, `admin_users`…)
 
 ## Dashboard (`/admin`)
 
@@ -68,18 +90,19 @@ query {
   siteSettings { email phoneDisplay hours }
 }
 
-mutation { login(username: "admin", password: "…") { token } }
+mutation { login(email: "admin@funbike.local", password: "…") { token email } }
+mutation { changeAdminPassword(currentPassword: "…", newPassword: "…") }
 mutation { updateHome(input: HomeInput!) { … } }      # accueil complet
 mutation { upsertBike(input: BikeInput!) { … } }
 mutation { upsertPart(input: PartInput!) { … } }
 ```
 
-Les mutations exigent l'en-tête `Authorization: Bearer <token>` (obtenu via `login`).
+Les mutations exigent l'en-tête `Authorization: Bearer <token>` (JWT, obtenu via `login`).
 Upload d'images : `POST /api/upload` (mêmes images servies sous `/uploads/…`).
 
 ## Données initiales
 
 ```bash
 npm run build-seed   # régénère server/data/seed.json depuis src/data.ts + content.ts
-npm run seed         # ré-initialise la base SQLite depuis seed.json
+npm run seed         # ré-initialise la base (MySQL ou SQLite) depuis seed.json
 ```

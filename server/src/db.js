@@ -1,66 +1,44 @@
 /**
- * Persistance SQLite (node:sqlite — sans dépendance native).
+ * Couche de stockage — choisit le driver :
+ *   1. MySQL (DATABASE_URL) par défaut — tables réelles, phpMyAdmin ;
+ *   2. SQLite local en repli si MySQL est injoignable (dev hors-ligne),
+ *      avec un avertissement explicite dans les logs.
  *
- * Le stockage est volontairement simple : une table `store` avec des
- * collections JSON (settings, home, bikes, parts, brands, categories, dealers).
- * Chaque écriture est transactionnelle et atomique.
+ * API partagée : getCollection / setCollection / seedIfEmpty /
+ * resetFromSeed / getUserByEmail / createUser / updateUserPassword / countUsers.
  */
-import { DatabaseSync } from "node:sqlite";
-import { mkdirSync, readFileSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { config } from "./config.js";
+import { createMysqlStore } from "./db-mysql.js";
+import { createSqliteStore } from "./db-sqlite.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = join(__dirname, "..", "data");
-const DB_PATH = join(DATA_DIR, "funbike.db");
-const SEED_PATH = join(DATA_DIR, "seed.json");
+let store = null;
 
-mkdirSync(DATA_DIR, { recursive: true });
-
-export const db = new DatabaseSync(DB_PATH);
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS store (
-    key   TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-  );
-`);
-
-/** Clés de collections gérées par le backend. */
-export const COLLECTIONS = [
-  "settings",
-  "home",
-  "bikes",
-  "parts",
-  "brands",
-  "categories",
-  "dealers",
-];
-
-export function getCollection(key) {
-  const row = db.prepare("SELECT value FROM store WHERE key = ?").get(key);
-  return row ? JSON.parse(row.value) : null;
-}
-
-export function setCollection(key, value) {
-  db.prepare(
-    `INSERT INTO store (key, value) VALUES (?, ?)
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-  ).run(key, JSON.stringify(value));
-}
-
-/** Insère le seed si la base est vide (premier démarrage). */
-export function seedIfEmpty() {
-  const row = db.prepare("SELECT COUNT(*) AS n FROM store").get();
-  if (row.n > 0) return false;
-  if (!existsSync(SEED_PATH)) {
-    console.warn("⚠ seed.json introuvable — lancez : npx tsx server/scripts/build-seed.ts");
-    return false;
+export async function initStore(seed) {
+  if (config.forceSqlite) {
+    store = createSqliteStore();
+    console.log("⚠ FORCE_SQLITE=1 — stockage local SQLite (le MySQL de DATABASE_URL est ignoré).");
+  } else {
+    try {
+      store = await createMysqlStore();
+      console.log(`✔ Base MySQL connectée (${config.databaseUrl.replace(/:[^:@]*@/, ":***@")})`);
+    } catch (e) {
+      store = createSqliteStore();
+      console.warn("⚠ MySQL injoignable — bascule sur SQLite local pour le dev.");
+      console.warn(`  → ${e.message}`);
+      console.warn("  → Démarre MySQL (XAMPP/WAMP/docker) ou corrige DATABASE_URL dans .env.");
+    }
   }
-  const seed = JSON.parse(readFileSync(SEED_PATH, "utf8"));
-  for (const key of COLLECTIONS) {
-    if (seed[key] !== undefined) setCollection(key, seed[key]);
-  }
-  console.log("✔ Base initialisée depuis seed.json");
-  return true;
+
+  const seeded = await store.seedIfEmpty(seed);
+  if (seeded) console.log("✔ Base initialisée depuis seed.json");
+  return store;
 }
+
+export function getStore() {
+  if (!store) throw new Error("initStore() doit être appelé avant toute lecture.");
+  return store;
+}
+
+/* Raccourcis utilisés par les resolvers GraphQL (asynchrones). */
+export const getCollection = (key) => getStore().getCollection(key);
+export const setCollection = (key, value) => getStore().setCollection(key, value);

@@ -7,15 +7,14 @@
  *   HomeContent (accueil entièrement modifiable depuis /admin),
  *   HeroSlide (produits présentés sur l'accueil — choisis dans le dashboard),
  *   SiteSettings (coordonnées du site).
+ *
+ * Stockage : MySQL (phpMyAdmin) via la couche db.js — repli SQLite local
+ * si le serveur MySQL est injoignable (dev hors-ligne).
  */
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { GraphQLError } from "graphql";
-import {
-  COLLECTIONS,
-  getCollection,
-  setCollection,
-} from "./db.js";
-import { login, verifyToken } from "./auth.js";
+import { getCollection, setCollection } from "./db.js";
+import { authFromHeader, changePassword, login } from "./auth.js";
 
 /* ------------------------------------------------------------------ */
 /*  SDL                                                               */
@@ -186,7 +185,7 @@ const typeDefs = /* GraphQL */ `
     tag: String!
     image: String!
     alt: String!
-    "Produit du catalogue lié (moto) — null si slide personnalisée."
+    "Produit du catalogue lié — null si slide personnalisée."
     bikeId: String
     order: Int!
     enabled: Boolean!
@@ -434,7 +433,7 @@ const typeDefs = /* GraphQL */ `
 
   type AuthPayload {
     token: String!
-    username: String!
+    email: String!
   }
 
   type Query {
@@ -451,8 +450,10 @@ const typeDefs = /* GraphQL */ `
   }
 
   type Mutation {
-    "Connexion administrateur — renvoie un jeton pour les mutations."
-    login(username: String!, password: String!): AuthPayload!
+    "Connexion administrateur (e-mail + mot de passe) — renvoie un jeton JWT."
+    login(email: String!, password: String!): AuthPayload!
+    "Change le mot de passe du compte connecté."
+    changeAdminPassword(currentPassword: String!, newPassword: String!): Boolean!
     updateSiteSettings(input: SiteSettingsInput!): SiteSettings!
     "Met à jour l'intégralité du contenu de l'accueil (textes, slides, sélections)."
     updateHome(input: HomeInput!): HomeContent!
@@ -508,11 +509,11 @@ const withOrder = (list) =>
 
 const resolvers = {
   Query: {
-    siteSettings: () => getCollection("settings"),
-    home: () => getCollection("home"),
+    siteSettings: async () => getCollection("settings"),
+    home: async () => getCollection("home"),
 
-    bikes: (_r, { brand, family, search }) => {
-      let list = getCollection("bikes") ?? [];
+    bikes: async (_r, { brand, family, search }) => {
+      let list = (await getCollection("bikes")) ?? [];
       if (brand) list = list.filter((b) => b.brand.toLowerCase() === brand.toLowerCase());
       if (family) list = list.filter((b) => b.family === family);
       if (search) {
@@ -526,10 +527,10 @@ const resolvers = {
       }
       return withOrder(list);
     },
-    bike: (_r, { id }) => (getCollection("bikes") ?? []).find((b) => b.id === id) ?? null,
+    bike: async (_r, { id }) => (await getCollection("bikes")).find((b) => b.id === id) ?? null,
 
-    parts: (_r, { kind, category, partType, compatibleBrand, search }) => {
-      let list = getCollection("parts") ?? [];
+    parts: async (_r, { kind, category, partType, compatibleBrand, search }) => {
+      let list = (await getCollection("parts")) ?? [];
       if (kind) list = list.filter((p) => p.kind === kind);
       if (category) list = list.filter((p) => p.category === category);
       if (partType) list = list.filter((p) => p.partType === partType);
@@ -540,43 +541,52 @@ const resolvers = {
       }
       return withOrder(list);
     },
-    part: (_r, { id }) => (getCollection("parts") ?? []).find((p) => p.id === id) ?? null,
+    part: async (_r, { id }) => (await getCollection("parts")).find((p) => p.id === id) ?? null,
 
-    brands: () => withOrder(getCollection("brands") ?? []),
-    categories: () => withOrder(getCollection("categories") ?? []),
-    dealers: () => withOrder(getCollection("dealers") ?? []),
+    brands: async () => withOrder((await getCollection("brands")) ?? []),
+    categories: async () => withOrder((await getCollection("categories")) ?? []),
+    dealers: async () => withOrder((await getCollection("dealers")) ?? []),
 
-    dashboardStats: () => {
-      const home = getCollection("home") ?? {};
+    dashboardStats: async () => {
+      const home = (await getCollection("home")) ?? {};
       return {
-        bikes: (getCollection("bikes") ?? []).length,
-        parts: (getCollection("parts") ?? []).length,
-        brands: (getCollection("brands") ?? []).length,
-        dealers: (getCollection("dealers") ?? []).length,
+        bikes: ((await getCollection("bikes")) ?? []).length,
+        parts: ((await getCollection("parts")) ?? []).length,
+        brands: ((await getCollection("brands")) ?? []).length,
+        dealers: ((await getCollection("dealers")) ?? []).length,
         heroSlides: (home.heroSlides ?? []).filter((s) => s.enabled).length,
       };
     },
   },
 
   Mutation: {
-    login: (_r, { username, password }) => {
+    login: async (_r, { email, password }) => {
       try {
-        const token = login(username, password);
-        return { token, username };
+        const token = await login(email, password);
+        return { token, email };
       } catch (e) {
         throw new GraphQLError(e.message, { extensions: { code: "UNAUTHENTICATED" } });
       }
     },
 
-    updateSiteSettings: (_r, { input }, ctx) => {
+    changeAdminPassword: async (_r, { currentPassword, newPassword }, ctx) => {
+      const auth = requireAuth(ctx);
+      try {
+        return await changePassword(auth.email, currentPassword, newPassword);
+      } catch (e) {
+        throw new GraphQLError(e.message, { extensions: { code: "BAD_USER_INPUT" } });
+      }
+    },
+
+    updateSiteSettings: async (_r, { input }, ctx) => {
       requireAuth(ctx);
-      setCollection("settings", input);
+      await setCollection("settings", input);
       return input;
     },
 
-    updateHome: (_r, { input }, ctx) => {
+    updateHome: async (_r, { input }, ctx) => {
       requireAuth(ctx);
-      const current = getCollection("home") ?? {};
+      const current = (await getCollection("home")) ?? {};
       const home = {
         hero: { ...input.hero, usages: input.hero.usages ?? [] },
         // Listes omises dans l'input → conservées en l'état.
@@ -604,13 +614,13 @@ const resolvers = {
         partenaires: input.partenaires,
         exclusiveBrands: withOrder(input.exclusiveBrands ?? current.exclusiveBrands ?? []),
       };
-      setCollection("home", home);
+      await setCollection("home", home);
       return home;
     },
 
-    upsertBike: (_r, { input }, ctx) => {
+    upsertBike: async (_r, { input }, ctx) => {
       requireAuth(ctx);
-      const bikes = getCollection("bikes") ?? [];
+      const bikes = (await getCollection("bikes")) ?? [];
       const id = input.id || nextId("bike", input.name, bikes);
       const bike = {
         id,
@@ -629,21 +639,21 @@ const resolvers = {
       const index = bikes.findIndex((b) => b.id === id);
       if (index >= 0) bikes[index] = bike;
       else bikes.push(bike);
-      setCollection("bikes", bikes);
+      await setCollection("bikes", bikes);
       return bike;
     },
 
-    deleteBike: (_r, { id }, ctx) => {
+    deleteBike: async (_r, { id }, ctx) => {
       requireAuth(ctx);
-      const bikes = getCollection("bikes") ?? [];
+      const bikes = (await getCollection("bikes")) ?? [];
       const next = bikes.filter((b) => b.id !== id);
-      setCollection("bikes", next);
+      await setCollection("bikes", next);
       return next.length !== bikes.length;
     },
 
-    upsertPart: (_r, { input }, ctx) => {
+    upsertPart: async (_r, { input }, ctx) => {
       requireAuth(ctx);
-      const parts = getCollection("parts") ?? [];
+      const parts = (await getCollection("parts")) ?? [];
       const id = input.id || nextId("part", input.name, parts);
       const part = {
         id,
@@ -663,41 +673,41 @@ const resolvers = {
       const index = parts.findIndex((p) => p.id === id);
       if (index >= 0) parts[index] = part;
       else parts.push(part);
-      setCollection("parts", parts);
+      await setCollection("parts", parts);
       return part;
     },
 
-    deletePart: (_r, { id }, ctx) => {
+    deletePart: async (_r, { id }, ctx) => {
       requireAuth(ctx);
-      const parts = getCollection("parts") ?? [];
+      const parts = (await getCollection("parts")) ?? [];
       const next = parts.filter((p) => p.id !== id);
-      setCollection("parts", next);
+      await setCollection("parts", next);
       return next.length !== parts.length;
     },
 
-    upsertBrand: (_r, { input }, ctx) => {
+    upsertBrand: async (_r, { input }, ctx) => {
       requireAuth(ctx);
-      const brands = getCollection("brands") ?? [];
+      const brands = (await getCollection("brands")) ?? [];
       const id = input.id || nextId("brand", input.name, brands);
       const brand = { id, name: input.name, src: input.src, order: input.order ?? brands.length };
       const index = brands.findIndex((b) => b.id === id);
       if (index >= 0) brands[index] = brand;
       else brands.push(brand);
-      setCollection("brands", brands);
+      await setCollection("brands", brands);
       return brand;
     },
 
-    deleteBrand: (_r, { id }, ctx) => {
+    deleteBrand: async (_r, { id }, ctx) => {
       requireAuth(ctx);
-      const brands = getCollection("brands") ?? [];
+      const brands = (await getCollection("brands")) ?? [];
       const next = brands.filter((b) => b.id !== id);
-      setCollection("brands", next);
+      await setCollection("brands", next);
       return next.length !== brands.length;
     },
 
-    upsertDealer: (_r, { input }, ctx) => {
+    upsertDealer: async (_r, { input }, ctx) => {
       requireAuth(ctx);
-      const dealers = getCollection("dealers") ?? [];
+      const dealers = (await getCollection("dealers")) ?? [];
       const id = input.id || nextId("dealer", input.key || input.name, dealers);
       const dealer = {
         id,
@@ -718,19 +728,18 @@ const resolvers = {
       const index = dealers.findIndex((d) => d.id === id);
       if (index >= 0) dealers[index] = dealer;
       else dealers.push(dealer);
-      setCollection("dealers", dealers);
+      await setCollection("dealers", dealers);
       return dealer;
     },
 
-    deleteDealer: (_r, { id }, ctx) => {
+    deleteDealer: async (_r, { id }, ctx) => {
       requireAuth(ctx);
-      const dealers = getCollection("dealers") ?? [];
+      const dealers = (await getCollection("dealers")) ?? [];
       const next = dealers.filter((d) => d.id !== id);
-      setCollection("dealers", next);
+      await setCollection("dealers", next);
       return next.length !== dealers.length;
     },
   },
 };
 
 export const schema = makeExecutableSchema({ typeDefs, resolvers });
-export { COLLECTIONS };

@@ -295,15 +295,30 @@ export function clearAdminSession() {
   }
 }
 
-export async function adminLogin(username: string, password: string): Promise<string> {
-  const data = await gql<{ login: { token: string; username: string } }>(
-    `mutation($u: String!, $p: String!) {
-      login(username: $u, password: $p) { token username }
+export async function adminLogin(email: string, password: string): Promise<string> {
+  const data = await gql<{ login: { token: string; email: string } }>(
+    `mutation($e: String!, $p: String!) {
+      login(email: $e, password: $p) { token email }
     }`,
-    { u: username, p: password },
+    { e: email, p: password },
   );
-  setAdminSession(data.login.token, data.login.username);
+  setAdminSession(data.login.token, data.login.email);
   return data.login.token;
+}
+
+export async function changeAdminPassword(
+  currentPassword: string,
+  newPassword: string,
+  token: string,
+): Promise<boolean> {
+  const data = await gql<{ changeAdminPassword: boolean }>(
+    `mutation($current: String!, $next: String!) {
+      changeAdminPassword(currentPassword: $current, newPassword: $next)
+    }`,
+    { current: currentPassword, next: newPassword },
+    token,
+  );
+  return data.changeAdminPassword;
 }
 
 /* ------------------------------------------------------------------ */
