@@ -1,55 +1,66 @@
 /**
- * Authentification admin : jetons HMAC signés (sans dépendance externe).
+ * Authentification admin : jetons JWT (jsonwebtoken) + mots de passe hachés (bcryptjs).
  *
- * Identifiants par défaut (surcharge par variables d'environnement) :
- *   ADMIN_USER=admin  ADMIN_PASSWORD=funbike2026
+ * Le compte initial est créé au premier démarrage depuis les variables
+ * INITIAL_ADMIN_EMAIL / INITIAL_ADMIN_PASSWORD du fichier .env.
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { config } from "./config.js";
+import { getStore } from "./db.js";
 
-const SECRET = process.env.JWT_SECRET || "funbike-dev-secret-change-me";
-const ADMIN_USER = process.env.ADMIN_USER || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "funbike2026";
-const TTL_SECONDS = 12 * 60 * 60; // 12 h
-
-const b64url = (buf) => Buffer.from(buf).toString("base64url");
-
-function sign(payloadB64) {
-  return createHmac("sha256", SECRET).update(payloadB64).digest("base64url");
-}
-
-export function login(username, password) {
-  const okUser = username === ADMIN_USER;
-  const okPass = password === ADMIN_PASSWORD;
-  if (!okUser || !okPass) {
-    throw new Error("Identifiants incorrects.");
-  }
-  const payload = b64url(
-    JSON.stringify({ u: username, exp: Date.now() + TTL_SECONDS * 1000 }),
-  );
-  return `${payload}.${sign(payload)}`;
+export function signToken(email) {
+  return jwt.sign({ email }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
 }
 
 export function verifyToken(token) {
-  if (!token) return null;
-  const parts = token.split(".");
-  if (parts.length !== 2) return null;
-  const [payloadB64, sig] = parts;
-  const expected = sign(payloadB64);
-  const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   try {
-    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
-    if (typeof payload.exp !== "number" || payload.exp < Date.now()) return null;
-    return payload;
+    return jwt.verify(token, config.jwtSecret);
   } catch {
     return null;
   }
 }
 
-/** Extrait le jeton depuis l'en-tête Authorization: Bearer <token>. */
+/** Extrait et vérifie le jeton : Authorization: Bearer <token>. */
 export function authFromHeader(headerValue) {
   if (!headerValue) return null;
   const m = /^Bearer\s+(.+)$/i.exec(headerValue);
   return verifyToken(m ? m[1] : headerValue);
+}
+
+export function hashPassword(password) {
+  return bcrypt.hash(password, 10);
+}
+
+/** Connexion par e-mail + mot de passe → jeton JWT. */
+export async function login(email, password) {
+  const user = await getStore().getUserByEmail(email);
+  if (!user) throw new Error("Identifiants incorrects.");
+  const ok = await bcrypt.compare(password, user.password_hash);
+  if (!ok) throw new Error("Identifiants incorrects.");
+  return signToken(user.email);
+}
+
+/** Crée le compte administrateur initial si aucun utilisateur n'existe. */
+export async function ensureInitialAdmin() {
+  const store = getStore();
+  if ((await store.countUsers()) > 0) return;
+  const hash = await hashPassword(config.adminPassword);
+  await store.createUser(config.adminEmail, hash);
+  console.log(`✔ Compte administrateur créé : ${config.adminEmail}`);
+}
+
+/** Change le mot de passe de l'utilisateur connecté (vérifie l'ancien). */
+export async function changePassword(email, currentPassword, newPassword) {
+  const store = getStore();
+  const user = await store.getUserByEmail(email);
+  if (!user) throw new Error("Compte introuvable.");
+  const ok = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!ok) throw new Error("Mot de passe actuel incorrect.");
+  if (!newPassword || newPassword.length < 8) {
+    throw new Error("Le nouveau mot de passe doit faire au moins 8 caractères.");
+  }
+  const hash = await hashPassword(newPassword);
+  await store.updateUserPassword(email, hash);
+  return true;
 }

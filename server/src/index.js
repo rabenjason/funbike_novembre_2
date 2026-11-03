@@ -12,20 +12,30 @@
 import { createServer } from "node:http";
 import { createYoga } from "graphql-yoga";
 import { randomUUID } from "node:crypto";
-import { createReadStream, createWriteStream, existsSync, mkdirSync, statSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, normalize, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { schema } from "./schema.js";
-import { seedIfEmpty } from "./db.js";
+import { initStore } from "./db.js";
+import { ensureInitialAdmin } from "./auth.js";
+import { config } from "./config.js";
 import { authFromHeader } from "./auth.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const UPLOAD_DIR = join(__dirname, "..", "uploads");
-const PORT = Number(process.env.PORT || 4000);
+const PORT = config.apiPort;
 
 mkdirSync(UPLOAD_DIR, { recursive: true });
-seedIfEmpty();
+
+// Initialisation du stockage (MySQL par défaut, repli SQLite) + compte admin.
+const seedPath = join(__dirname, "..", "data", "seed.json");
+const seed = existsSync(seedPath) ? JSON.parse(readFileSync(seedPath, "utf8")) : {};
+if (Object.keys(seed).length === 0) {
+  console.warn("⚠ seed.json introuvable — lancez : npm run build-seed");
+}
+await initStore(seed);
+await ensureInitialAdmin();
 
 const ALLOWED_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".avif"]);
 const MAX_UPLOAD = 10 * 1024 * 1024; // 10 Mo

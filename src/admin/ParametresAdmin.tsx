@@ -1,8 +1,8 @@
 /** Paramètres du site (/admin/parametres) : identité, coordonnées, logo. */
 import { useRef, useState } from "react";
 import type { SiteSettings } from "../lib/api";
-import { mutateSiteSettings } from "../lib/api";
-import { Field, ImageField, Panel, SaveBar, TextArea, TextInput } from "./ui";
+import { changeAdminPassword, mutateSiteSettings } from "../lib/api";
+import { AdminButton, Field, ImageField, Panel, SaveBar, TextArea, TextInput } from "./ui";
 
 type AdminPageProps = { data: { settings: SiteSettings }; refresh: () => void; token: string };
 
@@ -105,7 +105,64 @@ export default function ParametresAdmin({ data, refresh, token }: AdminPageProps
         </Panel>
       </div>
 
+      <div className="mt-6">
+        <Panel
+          title="Sécurité — mot de passe administrateur"
+          description="Changez le mot de passe du compte connecté (utilisé pour se connecter au dashboard)."
+        >
+          <PasswordForm token={token} />
+        </Panel>
+      </div>
+
       <SaveBar onSave={() => void save()} saving={saving} message={msg} dirty={dirty} />
+    </div>
+  );
+}
+
+function PasswordForm({ token }: { token: string }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function submit() {
+    if (next !== confirm) {
+      setMsg("❌ La confirmation ne correspond pas au nouveau mot de passe.");
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      await changeAdminPassword(current, next, token);
+      setMsg("✅ Mot de passe modifié.");
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+    } catch (e) {
+      setMsg(`❌ ${e instanceof Error ? e.message : "Erreur."}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="grid max-w-xl gap-4">
+        <Field label="Mot de passe actuel">
+          <TextInput type="password" value={current} onChange={(e) => setCurrent(e.target.value)} />
+        </Field>
+        <Field label="Nouveau mot de passe" hint="8 caractères minimum.">
+          <TextInput type="password" value={next} onChange={(e) => setNext(e.target.value)} />
+        </Field>
+        <Field label="Confirmer le nouveau mot de passe">
+          <TextInput type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        </Field>
+      </div>
+      {msg && <p className="mt-3 text-sm font-semibold">{msg}</p>}
+      <AdminButton className="mt-4" onClick={() => void submit()} disabled={busy || !current || !next}>
+        {busy ? "Modification…" : "Modifier le mot de passe"}
+      </AdminButton>
     </div>
   );
 }

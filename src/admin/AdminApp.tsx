@@ -46,7 +46,7 @@ function currentSection(): SectionKey {
 /* ------------------------------------------------------------------ */
 
 function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
-  const [username, setUsername] = useState("admin");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +56,7 @@ function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
     setBusy(true);
     setError(null);
     try {
-      const token = await adminLogin(username, password);
+      const token = await adminLogin(email.trim(), password);
       onLogin(token);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Connexion impossible.");
@@ -78,12 +78,14 @@ function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
 
         <div className="mt-6 space-y-4">
           <label className="block">
-            <span className={labelCls}>Utilisateur</span>
+            <span className={labelCls}>E-mail</span>
             <input
+              type="email"
               className={inputCls}
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               autoComplete="username"
+              placeholder="admin@funbike.local"
             />
           </label>
           <label className="block">
@@ -109,7 +111,7 @@ function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
         </button>
 
         <p className="mt-4 text-center text-[10px] text-black/35">
-          Identifiants par défaut : admin / funbike2026 (à changer via les variables d'environnement).
+          Compte initial : INITIAL_ADMIN_EMAIL / INITIAL_ADMIN_PASSWORD du fichier .env.
         </p>
         <a
           href="/"
