@@ -16,4 +16,14 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  server: {
+    // Accessible depuis le navigateur (preview) et relié au backend GraphQL.
+    host: true,
+    allowedHosts: true,
+    proxy: {
+      "/graphql": { target: "http://localhost:4000", changeOrigin: true },
+      "/uploads": { target: "http://localhost:4000", changeOrigin: true },
+      "/api": { target: "http://localhost:4000", changeOrigin: true },
+    },
+  },
 });

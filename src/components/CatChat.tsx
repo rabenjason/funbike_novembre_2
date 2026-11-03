@@ -19,7 +19,8 @@ import {
   faXmark,
   type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
-import { BIKES, type Bike } from "../data";
+import type { Bike } from "../lib/api";
+import { getBikes } from "../lib/catalog";
 import SmartImage from "./SmartImage";
 import {
   EMPTY_MEMORY,
@@ -154,7 +155,7 @@ function loadStored(): Stored | null {
 }
 
 const clock = (time: number) => new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(time);
-const bikeById = (id: string) => BIKES.find((b) => b.id === id);
+const bikeById = (id: string) => getBikes().find((b) => b.id === id);
 
 const ACTION_ICONS: Record<ChatActionIcon, IconDefinition> = {
   catalog: faLayerGroup,

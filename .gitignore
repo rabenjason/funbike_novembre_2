@@ -64,6 +64,10 @@ web_modules/
 
 # Runtime-uploaded catalog photos
 backend/uploads/
+server/uploads/
+
+# SQLite runtime database (the seed lives in server/data/seed.json)
+server/data/*.db
 
 # Yarn Integrity file
 .yarn-integrity

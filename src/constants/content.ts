@@ -1,9 +1,11 @@
 /**
- * Textes fixes du site FunBike.
+ * Textes du site FunBike.
  *
  * Objectif : modifier un texte visible sans ouvrir chaque composant.
- * Les données dynamiques (motos, produits, images, revendeurs, promotions)
- * restent dans leurs fichiers de données et sont typées dans src/types/.
+ * ⚠️ Les blocs `accueil` et `site` servent de SOURCE au seed du backend
+ * GraphQL (server/scripts/build-seed.ts) : à l'exécution, ces valeurs
+ * proviennent de l'API (/graphql) et se modifient dans /admin.
+ * Les libellés restants (navigation, boutons, messages) sont des textes UI fixes.
  */
 export const content = {
   site: {
